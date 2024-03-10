@@ -432,7 +432,7 @@ const main = () => {
                 const [firstAccount] = await wallet.getAccounts();
 
                 const client = await SigningCosmWasmClient.connectWithSigner(config.rpc, wallet, {
-                    gasPrice: GasPrice.fromString(options.gasPrice ? options.gasPrice + "usei" : "0.57usei")
+                    gasPrice: GasPrice.fromString(options.gasPrice ? options.gasPrice + "usei" : "0.33usei")
                 });
                 const valueInUsei = new BigNumber(answers.valueInSEI).multipliedBy(new BigNumber("1e6")).toFixed().toString();
 
