@@ -90,7 +90,7 @@ async function simulate(
                 },
                 amount: amount
             },
-            max_spread: "0.49"
+            max_spread: "0.5"
         }
     };
 
@@ -166,7 +166,7 @@ async function signAndBroadcast(pool:string, amount: string, client: SigningCosm
                 },
                 amount: amount
             },
-            max_spread: "0.49"
+            max_spread: "0.5"
         }
     };
 
@@ -432,7 +432,7 @@ const main = () => {
                 const [firstAccount] = await wallet.getAccounts();
 
                 const client = await SigningCosmWasmClient.connectWithSigner(config.rpc, wallet, {
-                    gasPrice: GasPrice.fromString(options.gasPrice ? options.gasPrice + "usei" : "0.33usei")
+                    gasPrice: GasPrice.fromString(options.gasPrice ? options.gasPrice + "usei" : "1.5usei")
                 });
                 const valueInUsei = new BigNumber(answers.valueInSEI).multipliedBy(new BigNumber("1e6")).toFixed().toString();
 
