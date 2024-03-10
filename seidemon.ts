@@ -21,21 +21,6 @@ import {
   MsgUpdateAdmin,
 } from "cosmjs-types/cosmwasm/wasm/v1/tx";
 
-export const saveLogs = (logs: any) => {
-    //add logs to log file if exists
-    if (fs.existsSync("./logs.json")) {
-        let logFile: any = []
-        try {
-            logFile = JSON.parse(fs.readFileSync("./logs.json", "utf-8"))
-            logFile.push(logs)
-        } catch (e) {
-            logFile = logs
-        }
-        fs.writeFileSync("./logs.json", JSON.stringify(logFile, null, 4))
-    } else {
-        fs.writeFileSync("./logs.json", JSON.stringify(logs, null, 4))
-    }
-}
 
 const loadConfig = () => {
     //check if config exists
@@ -80,54 +65,6 @@ function playSound() {
     });
 }
 
-async function snipe(pool:string, amount: string, client: SigningCosmWasmClient, wallet: string) {
-    const swapMsg = {
-        swap: {
-            offer_asset: {
-                info: {
-                    native_token: {
-                        denom: "usei"
-                    }
-                },
-                amount: amount
-            },
-            max_spread: "0.49"
-        }
-    };
-
-    const coins = [{
-        denom: 'usei',
-        amount: amount,
-    }];
-
-    let success = false;
-
-    while (!success) {
-        try {
-            const mintReceipt = await client.execute(wallet, pool, swapMsg, "auto", "sniping bot by 0xpeppermint", coins);
-            
-            if (mintReceipt && mintReceipt.transactionHash) {
-                console.log("\nSuccess: " + chalk.green(mintReceipt.transactionHash));
-                playSound();
-                success = true; 
-                break; 
-            }
-
-        } catch (error) {
-            if (error instanceof Error) {
-                if (error.message.includes("empty")) {
-                    console.error(`\n Simulation reverted! not live yet... target pool: ${pool}`);
-                } else {
-                    console.error("\nError executing transaction:", error.message);
-                }
-            } else {
-                console.error("\nAn unexpected error occurred:", error);
-            }
-            await new Promise(resolve => setTimeout(resolve, 5));
-        }
-    }
-}
-
 function sleep(milliseconds: number): Promise<void> {
   return new Promise(resolve => {
     setTimeout(resolve, milliseconds);
@@ -139,6 +76,7 @@ async function simulate(
     amount: string, 
     client: SigningCosmWasmClient, 
     wallet: string, 
+    tokenName: string,
     onSuccess: (estimation: any) => Promise<void>
 ): Promise<void> {
 
@@ -180,7 +118,7 @@ async function simulate(
       }),
     }));
 
-    let spinner = ora(`Simulating ${Math.round(parseFloat(amount)/1000000)} SEI buy at pool: ${pool}`).start();
+    let spinner = ora(`Simulating ${Math.round(parseFloat(amount)/1000000)} SEI buy of ${tokenName} at pool: ${pool}`).start();
 
     return new Promise<void>(async (resolve, reject) => {
         let isSuccessful = false;
@@ -216,7 +154,7 @@ async function simulate(
 }
 
 
-async function signAndBroadcast(pool:string, amount: string, client: SigningCosmWasmClient, wallet: string) {
+async function signAndBroadcast(pool:string, amount: string, client: SigningCosmWasmClient, wallet: string, tokenName: string) {
 
     const swapMsg = {
         swap: {
@@ -256,11 +194,11 @@ async function signAndBroadcast(pool:string, amount: string, client: SigningCosm
       }),
     }));
 
-    let spinner = ora(`Sniping ${Math.round(parseFloat(amount)/1000000)} SEI at pool: ${pool}`).start();
+    let spinner = ora(`Sniping ${Math.round(parseFloat(amount)/1000000)} SEI of ${tokenName} at pool: ${pool}`).start();
 
     const mintReceipt = await client.signAndBroadcast(wallet, msgs, "auto", "sniping bot by 0xpeppermint")
 
-    spinner.succeed(`Sniped ${Math.round(parseFloat(amount)/1000000)} SEI at pool: ${pool}`)
+    spinner.succeed(`Sniped ${Math.round(parseFloat(amount)/1000000)} SEI of ${tokenName} at pool: ${pool}`)
     
     console.log("tx_hash: " + chalk.green(mintReceipt.transactionHash));
     return 0
@@ -268,19 +206,11 @@ async function signAndBroadcast(pool:string, amount: string, client: SigningCosm
 }
 
 
-async function getValue(pool: string, client: SigningCosmWasmClient, walletAddress: string, initialBalance: number) {
+async function getValue(pool: string, client: SigningCosmWasmClient, walletAddress: string, initialBalance: number, tokenName: string, tokenContract: string) {
 
     let pairResponse = await client.queryContractSmart(pool, { pair: {}})
-    let tokenContract;
-    if (pairResponse.asset_infos[0].token) {
-        tokenContract = pairResponse.asset_infos[0].token.contract_addr;
-    } 
-    else if (pairResponse.asset_infos[1].token) {
-        tokenContract = pairResponse.asset_infos[1].token.contract_addr;
-    }
 
     let infoResponse = await client.queryContractSmart(tokenContract, { token_info: {}})
-    const tokenName = infoResponse.name;
 
     let balanceResponse = await client.queryContractSmart(tokenContract, { balance: {address:walletAddress}})
     const tokenBalance = balanceResponse.balance;
@@ -303,7 +233,7 @@ async function getValue(pool: string, client: SigningCosmWasmClient, walletAddre
         }
     }; 
 
-    const troll = ["wanna jeet it?","send it turbo.","DRAIN ACTIVATED. tx pending...","tech better than bananabot","dev is goat","SBF wished he had that much","Warren Buffet in disbelief","1 SEI = 1 SEI","best chain fr fr","| current SEI price: $1.69","milady","next bitcoin.", "ngmi","general wealth", "remilio.","inshallah","next pepe","500k programmed","who just jeeted?","rugging in 3,2,1...","post it on twitter","tell your mom","flying to Bali tomorrow","pays for the dentist.","JEET FUNCTIONALITY TEMPORARILLY RESTRICTED","send pepper 10% (pls)","reported to IRS","run it up","wtf?!","going to zero...","its so over...","we are so back.","WAGMI!","lambo soon","going to 1M (tomorrow)","jeet now","removing liquidity...","MASSIVE!", "better sell some here","Slaaaaaaay!","gg","ggwp","rip","strong resistance at 0", "MEGASENDOOOOOOR","FREE!", "god said lets cook","currency of the future","repeat after me: I will not jeet","Then God said, Let there be light; and there was light","four.","did you rob a bank?"]
+    const troll = ["wanna jeet it?","send it turbo.","tech better than bananabot","dev is goat","1 SEI = 1 SEI","best chain fr","| current SEI price: $4.69","milady","next bitcoin.","generational wealth", "remilio.","next pepe","1M programmed","who just jeeted?","rugging in 3,2,1...","post it on twitter","send peppermint 10% (pls)","run it up","wtf?!","going to zero...","its so over...","we are so back.","WAGMI!","going to 1M (soon)","MASSIVE!", "better sell some here","gg","rip","strong resistance at 0", "MEGASENDOOOOOOR","FREE!","currency of the future"]
 
     const randomIndex = Math.floor(Math.random() * troll.length);
     const randomString = troll[randomIndex];
@@ -338,12 +268,9 @@ async function getValue(pool: string, client: SigningCosmWasmClient, walletAddre
 }
 
 
-async function sell(pool:string, amount: number, client: SigningCosmWasmClient, wallet: string, tokenValue: GLfloat, percentToSell: GLfloat) {
+async function sell(pool:string, amount: number, client: SigningCosmWasmClient, wallet: string, tokenValue: GLfloat, percentToSell: GLfloat, tokenContract: string) {
 
     let spinner = ora(`jeeting ${amount/1000000} tokens for ${Math.round(percentToSell/100 * tokenValue)} SEI...`).start();
-
-    let pairResponse = await client.queryContractSmart(pool, { pair: {}})
-    const tokenContract = pairResponse.asset_infos[0].token.contract_addr;
 
     const toBase64 = (obj: Record<string, unknown>) => {
         return Buffer.from(JSON.stringify(obj)).toString("base64");
@@ -478,7 +405,8 @@ const main = () => {
                     choices: ['Snipe', 'Check Value/Sell']
                 }
             ]);
-
+            var tokenName = "N/A"
+            var tokenContract = "0x"
             if (nextAction.action === 'Snipe') {
 
                 const answers = await inquirer.prompt([
@@ -508,22 +436,56 @@ const main = () => {
                 });
                 const valueInUsei = new BigNumber(answers.valueInSEI).multipliedBy(new BigNumber("1e6")).toFixed().toString();
 
-                console.log(chalk.grey("---------------------------------"))
+                while (true) {
+                    try {
+                        const pairResponse = await client.queryContractSmart(answers.pool || '', { pair: {} });
+
+                        if (pairResponse.asset_infos[0].token) {
+                            tokenContract = pairResponse.asset_infos[0].token.contract_addr;
+                        } 
+                        else if (pairResponse.asset_infos[1].token) {
+                            tokenContract = pairResponse.asset_infos[1].token.contract_addr;
+                        }
+                        break;
+
+                    } catch (error) {
+                        console.log(chalk.red("Error! Address provided is likely not a valid pool!"));
+                        const newPool = await inquirer.prompt([
+                            {
+                                type: 'input',
+                                name: 'pool',
+                                message: 'Enter pool address:',
+                                validate: input => input ? true : 'Pool address is required'
+                            }
+                        ]);
+                        answers.pool = newPool.pool;
+                    }
+                }
+
+                try {
+                    let infoResponse = await client.queryContractSmart(tokenContract, { token_info: {}})
+                    tokenName = infoResponse.name;    
+                }   catch (error) {
+                    console.log(error)
+                }
+                
 
                 var pnl = Number(0)
                 let balanceResponse = await client.getBalance(firstAccount.address, "usei");
                 var initialBalance = Math.round(Number(balanceResponse.amount)/1000000);
                 var currentBalance = 0
+
+                console.log(chalk.grey("---------------------------------"))
                 console.log(chalk.green(`SEI balance: ` + initialBalance + " SEI"))
 
-                await simulate(answers.pool, valueInUsei, client, firstAccount.address,
+                await simulate(answers.pool, valueInUsei, client, firstAccount.address, tokenName,
                     async (result) => {
-                        await signAndBroadcast(answers.pool, valueInUsei, client, firstAccount.address);
+                        await signAndBroadcast(answers.pool, valueInUsei, client, firstAccount.address, tokenName);
                     }
                 );
 
                 await new Promise(resolve => setTimeout(resolve, 1.5));
-                var result = await getValue(answers.pool, client, firstAccount.address, initialBalance);
+                var result = await getValue(answers.pool, client, firstAccount.address, initialBalance, tokenName, tokenContract);
                 var tokenBalance = result.tokenBalance
                 var tokenValue = result.tokenValue
 
@@ -539,7 +501,7 @@ const main = () => {
                     ]);
 
                     if (nextAction.action === 'Refresh') {
-                        result = await getValue(answers.pool, client, firstAccount.address, initialBalance);
+                        result = await getValue(answers.pool, client, firstAccount.address, initialBalance, tokenName, tokenContract);
 
                         tokenBalance = result.tokenBalance
                         tokenValue = result.tokenValue
@@ -547,7 +509,7 @@ const main = () => {
 
                     } else if (nextAction.action === 'Sell %') {
 
-                        result = await getValue(answers.pool, client, firstAccount.address, initialBalance);
+                        result = await getValue(answers.pool, client, firstAccount.address, initialBalance, tokenName, tokenContract);
 
                         tokenBalance = result.tokenBalance
                         tokenValue = result.tokenValue
@@ -566,8 +528,8 @@ const main = () => {
                         const percentToSell = parseFloat(sellInfo.percent);
                         const tokensToSell = Math.ceil(parseFloat(tokenBalance) * (percentToSell * 100 / 10000));
 
-                        await sell(answers.pool, tokensToSell, client, firstAccount.address, tokenValue, percentToSell)
-                        result = await getValue(answers.pool, client, firstAccount.address, initialBalance);
+                        await sell(answers.pool, tokensToSell, client, firstAccount.address, tokenValue, percentToSell, tokenContract)
+                        result = await getValue(answers.pool, client, firstAccount.address, initialBalance, tokenName, tokenContract);
 
                         tokenBalance = result.tokenBalance
                         tokenValue = result.tokenValue
@@ -598,10 +560,43 @@ const main = () => {
                     gasPrice: GasPrice.fromString(options.gasPrice ? options.gasPrice + "usei" : "0.88usei")
                 });
 
+                while (true) {
+                    try {
+                        const pairResponse = await client.queryContractSmart(answers.pool || '', { pair: {} });
+
+                        if (pairResponse.asset_infos[0].token) {
+                            tokenContract = pairResponse.asset_infos[0].token.contract_addr;
+                        } 
+                        else if (pairResponse.asset_infos[1].token) {
+                            tokenContract = pairResponse.asset_infos[1].token.contract_addr;
+                        }
+                        break;
+
+                    } catch (error) {
+                        console.log(chalk.red("Error! Address provided is likely not a valid pool!"));
+                        const newPool = await inquirer.prompt([
+                            {
+                                type: 'input',
+                                name: 'pool',
+                                message: 'Enter pool address:',
+                                validate: input => input ? true : 'Pool address is required'
+                            }
+                        ]);
+                        answers.pool = newPool.pool;
+                    }
+                }
+
+                try {
+                    let infoResponse = await client.queryContractSmart(tokenContract, { token_info: {}})
+                    tokenName = infoResponse.name;    
+                }   catch (error) {
+                    console.log(error)
+                }
+
                 let balanceResponse = await client.getBalance(firstAccount.address, "usei");
                 var initialBalance = Math.round(Number(balanceResponse.amount)/1000000);
 
-                result = await getValue(answers.pool, client, firstAccount.address, initialBalance);
+                result = await getValue(answers.pool, client, firstAccount.address, initialBalance, tokenName, tokenContract);
 
                 tokenBalance = result.tokenBalance
                 tokenValue = result.tokenValue
@@ -619,7 +614,7 @@ const main = () => {
                     ]);
 
                     if (nextAction.action === 'Refresh') {
-                        result = await getValue(answers.pool, client, firstAccount.address, initialBalance);
+                        result = await getValue(answers.pool, client, firstAccount.address, initialBalance, tokenName, tokenContract);
 
                         tokenBalance = result.tokenBalance
                         tokenValue = result.tokenValue
@@ -627,7 +622,7 @@ const main = () => {
 
                     } else if (nextAction.action === 'Sell %') {
 
-                        result = await getValue(answers.pool, client, firstAccount.address, initialBalance);
+                        result = await getValue(answers.pool, client, firstAccount.address, initialBalance, tokenName, tokenContract);
 
                         tokenBalance = result.tokenBalance
                         tokenValue = result.tokenValue
@@ -647,8 +642,8 @@ const main = () => {
 
                         console.log(chalk.green(`selling ${tokensToSell/1000000} tokens`));
 
-                        await sell(answers.pool, tokensToSell, client, firstAccount.address, tokenValue, percentToSell)
-                        result = await getValue(answers.pool, client, firstAccount.address, initialBalance);
+                        await sell(answers.pool, tokensToSell, client, firstAccount.address, tokenValue, percentToSell, tokenContract)
+                        result = await getValue(answers.pool, client, firstAccount.address, initialBalance, tokenName, tokenContract);
 
                         tokenBalance = result.tokenBalance
                         tokenValue = result.tokenValue
