@@ -27,7 +27,7 @@
 - Optionally, provide a SEI RPC ```ts-node seidemon.ts load-rpc``` 
 
 # Usage 
-- ```ts-node lighthouse.ts snipe``` 
+- ```ts-node seidemon.ts snipe``` 
 
 
 # Notes
