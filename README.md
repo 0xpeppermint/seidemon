@@ -1,12 +1,17 @@
  ## Seidemon is a CLI tool to snipe and trade SEI coins on Astroport 
 
-![image](https://github.com/0xpeppermint/seidemon/assets/162825807/e29fc709-5fe8-4853-8e7f-48fefce6a17c)
+![image](https://github.com/0xpeppermint/seidemon/assets/162825807/bbe08814-7924-479f-b5c1-b6a76b125a92)
+
+
+![image](https://github.com/0xpeppermint/seidemon/assets/162825807/01590ff5-d82e-435b-96f2-df004e21ae45)
+
 
 # Features
-- snipe non-live pools
+- turbo fast non live pool sniping
 - buy live pools
 - monitor holdings value
 - quickly sell % of holdings
+
 
 
 
@@ -27,7 +32,8 @@
 - Optionally, provide a SEI RPC ```ts-node seidemon.ts load-rpc``` 
 
 # Usage 
-- ```ts-node seidemon.ts snipe``` 
+- ```ts-node seidemon.ts snipe```
+- Both token contracts and pools can be used
 
 
 # Notes
