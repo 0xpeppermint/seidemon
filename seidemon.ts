@@ -20,6 +20,8 @@ import {
   MsgStoreCode,
   MsgUpdateAdmin,
 } from "cosmjs-types/cosmwasm/wasm/v1/tx";
+import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx";
+import { encodeSecp256k1Pubkey, makeSignDoc as makeSignDocAmino } from "@cosmjs/amino";
 
 
 const loadConfig = () => {
@@ -118,15 +120,22 @@ async function simulate(
       }),
     }));
 
+    const anyMsgs = msgs.map((m) => client.registry.encodeAsAny(m));
+    const accountFromSigner = (await client.signer.getAccounts()).find(
+      (account: any) => account.address === wallet,
+    );
+    const pubkey = encodeSecp256k1Pubkey(accountFromSigner.pubkey);
+    const { sequence } = await client.getSequence(wallet);
+
     let spinner = ora(`Simulating ${Math.round(parseFloat(amount)/1000000)} SEI buy of ${tokenName} at pool: ${pool}`).start();
 
     return new Promise<void>(async (resolve, reject) => {
         let isSuccessful = false;
         while (!isSuccessful) {
-            client.simulate(wallet, msgs, "").then(async estimation => {
+            client.forceGetQueryClient().tx.simulate(anyMsgs, "", pubkey, sequence).then(async estimation => {
                 if (!isSuccessful) {
                     isSuccessful = true;
-                    spinner.succeed(`Simulation success: `+ chalk.green(estimation) + chalk.green(" gas used"));
+                    spinner.succeed(`Simulation success 😈`);
                     playSound();
                     await onSuccess(estimation);
                     resolve(); // Resolve the promise after onSuccess completes
@@ -146,7 +155,7 @@ async function simulate(
             });
 
             if (!isSuccessful) {
-                await new Promise(resolve => setTimeout(resolve, 50));
+                await new Promise(resolve => setTimeout(resolve, 10));
             }
         }
     });
@@ -154,7 +163,19 @@ async function simulate(
 }
 
 
-async function signAndBroadcast(pool:string, amount: string, client: SigningCosmWasmClient, wallet: string, tokenName: string) {
+async function sendItTurbo(client: SigningCosmWasmClient, rawBytesSoGoodYesYesYes: Uint8Array, tokenName: string, pool: string, amount: string) {
+
+    let spinner = ora(`Sniping ${Math.round(parseFloat(amount)/1000000)} SEI of ${tokenName}`).start();
+    const mintReceipt = await client.broadcastTx(rawBytesSoGoodYesYesYes, 6000, 50);
+    spinner.succeed(`Sniped ${Math.round(parseFloat(amount)/1000000)} SEI of ${tokenName} 😈`)
+    console.log("tx_hash: " + chalk.green(mintReceipt.transactionHash));
+    return 0
+}
+
+
+async function sign(pool:string, amount: string, client: SigningCosmWasmClient, wallet: string) {
+
+    let spinner = ora(`Preparing tx data`).start();
 
     const swapMsg = {
         swap: {
@@ -192,27 +213,64 @@ async function signAndBroadcast(pool:string, amount: string, client: SigningCosm
         msg: toUtf8(JSON.stringify(i.msg)),
         funds: [...(i.funds || [])],
       }),
-    }));
+    })); 
 
-    let spinner = ora(`Sniping ${Math.round(parseFloat(amount)/1000000)} SEI of ${tokenName} at pool: ${pool}`).start();
+    const coinsGas = [{
+        denom: 'usei',
+        amount: "977777",
+    }];
 
-    const mintReceipt = await client.signAndBroadcast(wallet, msgs, "auto", "sniping bot by 0xpeppermint")
+    const fee = {
+        amount: coinsGas,
+        gas: "1337420",
+    };
 
-    spinner.succeed(`Sniped ${Math.round(parseFloat(amount)/1000000)} SEI of ${tokenName} at pool: ${pool}`)
-    
-    console.log("tx_hash: " + chalk.green(mintReceipt.transactionHash));
-    return 0
 
+    const txRawAsMeat = await client.sign(wallet, msgs, fee , "🫵😹 get mogged 🫵😹      sniped with 0xpeppermint bot ✌️🎀");
+    const rawBytesSoGoodYesYesYes = TxRaw.encode(txRawAsMeat).finish();
+
+    spinner.succeed(`Tx data ready 😈`)
+
+    return rawBytesSoGoodYesYesYes
 }
 
+async function getPool(tokenContract: string, client: SigningCosmWasmClient, tokenName: string) {
+
+    let spinner = ora(`Monitoring for ${tokenName} pool`).start();
+
+    let pool: string | undefined;
+
+    while (!pool) {
+        try {
+            const astroportIphoneFactory = "sei1xr3rq8yvd7qplsw5yx90ftsr2zdhg4e9z60h5duusgxpv72hud3shh3qfl";
+            const pairResponse = await client.queryContractSmart(astroportIphoneFactory, {
+                pair: {
+                    asset_infos: [
+                        { token: { contract_addr: tokenContract } },
+                        { native_token: { denom: "usei" } }
+                    ]
+                }
+            });
+
+            pool = pairResponse.contract_addr;
+            
+        } catch (error) {
+        }
+        await new Promise(resolve => setTimeout(resolve, 50)); 
+    }
+
+    spinner.succeed(`Pool detected  😈`);
+    return pool
+}
 
 async function getValue(pool: string, client: SigningCosmWasmClient, walletAddress: string, initialBalance: number, tokenName: string, tokenContract: string) {
 
-    let pairResponse = await client.queryContractSmart(pool, { pair: {}})
+    const [pairResponse, infoResponse, balanceResponse] = await Promise.all([
+        client.queryContractSmart(pool, { pair: {}}),
+        client.queryContractSmart(tokenContract, { token_info: {}}),
+        client.queryContractSmart(tokenContract, { balance: {address: walletAddress}})
+    ]);
 
-    let infoResponse = await client.queryContractSmart(tokenContract, { token_info: {}})
-
-    let balanceResponse = await client.queryContractSmart(tokenContract, { balance: {address:walletAddress}})
     const tokenBalance = balanceResponse.balance;
 
     const valueQueryMsg = {
@@ -262,11 +320,8 @@ async function getValue(pool: string, client: SigningCosmWasmClient, walletAddre
         console.log(chalk.green(`Your BAG is worth ${Math.round(tokenValue)} SEI. ` + chalk.grey(randomString)));
         console.log(chalk.green(`Balance: ` + Math.round(currentBalance) + " / " + `PnL: ` + Math.round(pnl) + " SEI."))
         return { tokenValue, tokenBalance };
-    }
-
-    
+    } 
 }
-
 
 async function sell(pool:string, amount: number, client: SigningCosmWasmClient, wallet: string, tokenValue: GLfloat, percentToSell: GLfloat, tokenContract: string) {
 
@@ -291,7 +346,7 @@ async function sell(pool:string, amount: number, client: SigningCosmWasmClient, 
         }
     }
 
-    const mintReceipt = await client.execute(wallet, tokenContract, sellMsg, "auto", "sniping bot by 0xpeppermint", []);
+    const mintReceipt = await client.execute(wallet, tokenContract, sellMsg, "auto", "🫵😹 get mogged 🫵😹      jeeted with 0xpeppermint bot ✌️🎀", []);
 
     if (mintReceipt && mintReceipt.transactionHash) {
         
@@ -299,7 +354,6 @@ async function sell(pool:string, amount: number, client: SigningCosmWasmClient, 
 
     spinner.succeed(`jeeted ${amount/1000000} tokens for ${Math.round(percentToSell/100 * tokenValue)} SEI...`);
     console.log("tx_hash: " + chalk.green(mintReceipt.transactionHash));
-
 }
 
 
@@ -413,7 +467,7 @@ const main = () => {
                     {
                         type: 'input',
                         name: 'pool',
-                        message: 'Enter pool address:',
+                        message: 'Enter pool or token address:',
                         validate: input => input ? true : 'Pool address is required'
                     },
                     {
@@ -431,35 +485,29 @@ const main = () => {
                 });
                 const [firstAccount] = await wallet.getAccounts();
 
-                const client = await SigningCosmWasmClient.connectWithSigner(config.rpc, wallet, {
-                    gasPrice: GasPrice.fromString(options.gasPrice ? options.gasPrice + "usei" : "1.5usei")
-                });
+                const client = await SigningCosmWasmClient.connectWithSigner(
+                    config.rpc,
+                    wallet,
+                    {
+                        gasPrice: GasPrice.fromString(options.gasPrice ? options.gasPrice + "usei" : "2usei"),
+                        broadcastPollIntervalMs: 100,
+                        broadcastTimeoutMs: 10000
+                    }
+                );
                 const valueInUsei = new BigNumber(answers.valueInSEI).multipliedBy(new BigNumber("1e6")).toFixed().toString();
 
-                while (true) {
-                    try {
-                        const pairResponse = await client.queryContractSmart(answers.pool || '', { pair: {} });
+                try {
+                    const pairResponse = await client.queryContractSmart(answers.pool || '', { pair: {} });
 
-                        if (pairResponse.asset_infos[0].token) {
-                            tokenContract = pairResponse.asset_infos[0].token.contract_addr;
-                        } 
-                        else if (pairResponse.asset_infos[1].token) {
-                            tokenContract = pairResponse.asset_infos[1].token.contract_addr;
-                        }
-                        break;
+                    if (pairResponse.asset_infos[0].token) {
+                        tokenContract = pairResponse.asset_infos[0].token.contract_addr;
+                    } 
+                    else if (pairResponse.asset_infos[1].token) {
+                        tokenContract = pairResponse.asset_infos[1].token.contract_addr;
+                    }  
 
-                    } catch (error) {
-                        console.log(chalk.red("Error! Address provided is likely not a valid pool!"));
-                        const newPool = await inquirer.prompt([
-                            {
-                                type: 'input',
-                                name: 'pool',
-                                message: 'Enter pool address:',
-                                validate: input => input ? true : 'Pool address is required'
-                            }
-                        ]);
-                        answers.pool = newPool.pool;
-                    }
+                } catch (error) {
+                    tokenContract = answers.pool
                 }
 
                 try {
@@ -467,8 +515,8 @@ const main = () => {
                     tokenName = infoResponse.name;    
                 }   catch (error) {
                     console.log(error)
-                }
-                
+                }  
+
 
                 var pnl = Number(0)
                 let balanceResponse = await client.getBalance(firstAccount.address, "usei");
@@ -478,11 +526,17 @@ const main = () => {
                 console.log(chalk.grey("---------------------------------"))
                 console.log(chalk.green(`SEI balance: ` + initialBalance + " SEI"))
 
+                if (tokenContract == answers.pool) {
+                    answers.pool = await getPool(tokenContract, client, tokenName)
+                }
+
+                const rawBytesSoGoodYesYesYes = await sign(answers.pool, valueInUsei, client, firstAccount.address)                
                 await simulate(answers.pool, valueInUsei, client, firstAccount.address, tokenName,
                     async (result) => {
-                        await signAndBroadcast(answers.pool, valueInUsei, client, firstAccount.address, tokenName);
+                        await sendItTurbo(client, rawBytesSoGoodYesYesYes, tokenName, answers.pool, valueInUsei);
                     }
                 );
+
 
                 await new Promise(resolve => setTimeout(resolve, 1.5));
                 var result = await getValue(answers.pool, client, firstAccount.address, initialBalance, tokenName, tokenContract);
@@ -544,7 +598,7 @@ const main = () => {
                     {
                         type: 'input',
                         name: 'pool',
-                        message: 'Enter pool address:',
+                        message: 'Enter pool or token address:',
                         validate: input => input ? true : 'Pool address is required'
                     }
                 ]);
@@ -556,34 +610,28 @@ const main = () => {
                 });
                 const [firstAccount] = await wallet.getAccounts();
 
-                const client = await SigningCosmWasmClient.connectWithSigner(config.rpc, wallet, {
-                    gasPrice: GasPrice.fromString(options.gasPrice ? options.gasPrice + "usei" : "0.88usei")
-                });
-
-                while (true) {
-                    try {
-                        const pairResponse = await client.queryContractSmart(answers.pool || '', { pair: {} });
-
-                        if (pairResponse.asset_infos[0].token) {
-                            tokenContract = pairResponse.asset_infos[0].token.contract_addr;
-                        } 
-                        else if (pairResponse.asset_infos[1].token) {
-                            tokenContract = pairResponse.asset_infos[1].token.contract_addr;
-                        }
-                        break;
-
-                    } catch (error) {
-                        console.log(chalk.red("Error! Address provided is likely not a valid pool!"));
-                        const newPool = await inquirer.prompt([
-                            {
-                                type: 'input',
-                                name: 'pool',
-                                message: 'Enter pool address:',
-                                validate: input => input ? true : 'Pool address is required'
-                            }
-                        ]);
-                        answers.pool = newPool.pool;
+                const client = await SigningCosmWasmClient.connectWithSigner(
+                    config.rpc,
+                    wallet,
+                    {
+                        gasPrice: GasPrice.fromString(options.gasPrice ? options.gasPrice + "usei" : "2usei"),
+                        broadcastPollIntervalMs: 100,
+                        broadcastTimeoutMs: 10000
                     }
+                );
+
+                try {
+                    const pairResponse = await client.queryContractSmart(answers.pool || '', { pair: {} });
+
+                    if (pairResponse.asset_infos[0].token) {
+                        tokenContract = pairResponse.asset_infos[0].token.contract_addr;
+                    } 
+                    else if (pairResponse.asset_infos[1].token) {
+                        tokenContract = pairResponse.asset_infos[1].token.contract_addr;
+                    } 
+
+                } catch (error) {
+                    tokenContract = answers.pool
                 }
 
                 try {
@@ -591,6 +639,10 @@ const main = () => {
                     tokenName = infoResponse.name;    
                 }   catch (error) {
                     console.log(error)
+                }
+
+                if (tokenContract == answers.pool) {
+                    answers.pool = await getPool(tokenContract, client, tokenName)
                 }
 
                 let balanceResponse = await client.getBalance(firstAccount.address, "usei");
