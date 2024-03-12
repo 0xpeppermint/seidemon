@@ -1,19 +1,20 @@
  ## Seidemon is a CLI tool to snipe and trade SEI coins on Astroport 
 
-![image](https://github.com/0xpeppermint/seidemon/assets/162825807/bbe08814-7924-479f-b5c1-b6a76b125a92)
+
+![image](https://github.com/0xpeppermint/seidemon/assets/162825807/311e3599-4ad9-427d-af0b-93befcb8bdbd)
+
+
+
 
 
 ![image](https://github.com/0xpeppermint/seidemon/assets/162825807/01590ff5-d82e-435b-96f2-df004e21ae45)
 
 
 # Features
-- turbo fast non live pool sniping
-- buy live pools
-- monitor holdings value
-- quickly sell % of holdings
-
-
-
+- Snipe tokens on Astroport with turbo speed
+- Buy live tokens on Astroport
+- Monitor holdings value
+- Quickly sell % of your BAG
 
 
 # Prerequisites
@@ -29,15 +30,15 @@
 
 - Install dependencies ```npm install```
 - Enter 12-word mnemonic ```ts-node seidemon.ts load-wallet```
-- Optionally, provide a SEI RPC ```ts-node seidemon.ts load-rpc``` 
+- Optionally, provide a SEI RPC ```ts-node seidemon.ts load-rpc``` (highly recommended)
 
 # Usage 
 - ```ts-node seidemon.ts snipe```
-- Both token contracts and pools can be used
+- Supports both token contracts and pool addresses
 
 
 # Notes
-- Use at your own risk. Keep minimum funds on the sniping wallet.
+- Use at your own risk. Keep minimum funds on the sniping wallet. Though unlikely double-buys may occur during high network congestion (e.g. demanded nft mints)  
 - A sound notification is played when a simulation is successful (e.g. pair is live)
 - The first wallet path is used from the provided mnemonic
 - Default (public) RPC is not stable during network congestion
