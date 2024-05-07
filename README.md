@@ -6,10 +6,6 @@
 
 
 
-
-![image](https://github.com/0xpeppermint/seidemon/assets/162825807/01590ff5-d82e-435b-96f2-df004e21ae45)
-
-
 # Features
 - Snipe tokens on Astroport with turbo speed
 - Buy live tokens on Astroport
